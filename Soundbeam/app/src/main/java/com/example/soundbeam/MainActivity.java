@@ -19,6 +19,7 @@ import java.io.IOException;
 public class MainActivity extends AppCompatActivity {
 
     static final int GALLERY_REQUEST = 1;
+    private Section[] sections;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,9 +56,9 @@ public class MainActivity extends AppCompatActivity {
                         e.printStackTrace();
                     }
                     imageView.setImageBitmap(bitmap);
-                    int[] av=averageARGB(bitmap);
+                    sections= sectionMaker(bitmap, 8);
                     TextView textView = (TextView)findViewById(R.id.textView);
-                    textView.setText(av[0]+"  "+av[1]+" "+av[2]+" "+av[3]);
+                   // textView.setText(av[0]+"  "+av[1]+" "+av[2]+" "+av[3]);
                 }
         }
     }
@@ -87,5 +88,41 @@ public class MainActivity extends AppCompatActivity {
 
         int[] average = {A, R, G, B};
         return average;
+    }
+
+    private static Section[] sectionMaker(Bitmap pic, int num)
+    {
+        Section[] sections = new Section[num];
+        int A, R, G, B;
+
+        int pixelColor;
+        int width = pic.getWidth();
+        int height = pic.getHeight();
+        int size = width * height;
+        int widthOfSection = width/num;
+        int sizeOfSection = widthOfSection * height;
+
+        for (int s = 0; s < num; s++) {
+            Section current = new Section();
+            A = R = G = B = 0;
+            for (int x = widthOfSection*s; x < widthOfSection*s + widthOfSection; ++x) {
+                for (int y = 0; y < height; ++y) {
+                    pixelColor = pic.getPixel(x, y);
+                    A += Color.alpha(pixelColor);
+                    R += Color.red(pixelColor);
+                    G += Color.green(pixelColor);
+                    B += Color.blue(pixelColor);
+                }
+            }
+           // current.setStart(widthOfSection*s);
+            current.setA(A/sizeOfSection);
+            current.setR(R/sizeOfSection);
+            current.setG(G/sizeOfSection);
+            current.setB(B/sizeOfSection);
+            sections[s] = current;
+        }
+        Section.WIDTH=widthOfSection;
+        Section.HEIGHT=height;
+        return sections;
     }
 }
