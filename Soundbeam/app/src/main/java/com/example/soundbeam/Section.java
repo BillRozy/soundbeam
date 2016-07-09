@@ -12,4 +12,21 @@ public class Section {
     public void setR(int R){this.R = R;}
     public void setG(int G){this.G = G;}
     public void setB(int B){this.B = B;}
+
+    public int getA() {
+        return A;
+    }
+
+    public int getB() {
+        return B;
+    }
+
+    public int getG() {
+        return G;
+    }
+
+    public int getR() {
+        return R;
+    }
+
 }
