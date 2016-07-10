@@ -7,6 +7,7 @@
     android:fitsSystemWindows="true"
     tools:context="com.example.soundbeam.MainActivity">
 
+
     <android.support.design.widget.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -22,32 +23,11 @@
 
     </android.support.design.widget.AppBarLayout>
 
-    <ImageView
-        android:id="@+id/imageView"
-        android:scaleType="fitStart"
-        android:layout_gravity="top"
-        android:layout_width="wrap_content"
+    <include layout="@layout/content_main"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:maxWidth="300dp"
-        android:maxHeight="300dp" />
+        android:layout_gravity="center_horizontal" />
 
-
-    <TextView
-        android:id="@+id/textView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom"/>
-    <include layout="@layout/content_main" />
-    <ProgressBar
-        android:id="@+id/progressBar"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:foregroundGravity="center_vertical|center_horizontal"
-        android:minWidth="200dp"
-        android:minHeight="200dp"
-        android:visibility="invisible"
-        style="@style/Base.Widget.AppCompat.ProgressBar">
-    </ProgressBar>
     <android.support.design.widget.FloatingActionButton
         android:id="@+id/fab"
         android:layout_width="wrap_content"

@@ -29,4 +29,15 @@ public class Section {
         return R;
     }
 
+    static public int[][] sectionsToInfo(Section[] sections){
+        int[][] info = new int[sections.length][4];
+        for(int i = 0; i < sections.length;i++){
+            info[i][0] = sections[i].getA();
+            info[i][1] = sections[i].getR();
+            info[i][2] = sections[i].getG();
+            info[i][3] = sections[i].getB();
+        }
+        return info;
+    }
+
 }

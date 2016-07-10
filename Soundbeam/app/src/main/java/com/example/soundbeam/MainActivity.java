@@ -2,6 +2,7 @@ package com.example.soundbeam;
 
 import android.content.Context;
 import android.content.Intent;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.net.Uri;
@@ -12,27 +13,42 @@ import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.net.Socket;
+import java.net.UnknownHostException;
 
 public class MainActivity extends AppCompatActivity {
 
+    private Socket client;
+    private PrintWriter printwriter;
+    String ip="192.168.1.4";
+    int port=45000;
     static final int GALLERY_REQUEST = 1;
     private Section[] sections;
     private ImageView imageView;
     private ProgressBar mProgressBar;
+    private Button connectBtn;
     private Context mContext;
     private Bitmap mBitmap;
+    private String message;
+    private ConnectionThread connector;
+    private Uri selectedImage;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         imageView = (ImageView) findViewById(R.id.imageView);
+        connectBtn = (Button) findViewById(R.id.connectButton);
         mContext = this;
         mProgressBar = (ProgressBar) findViewById(R.id.progressBar);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
@@ -48,6 +64,16 @@ public class MainActivity extends AppCompatActivity {
                 startActivityForResult(photoPickerIntent, GALLERY_REQUEST);
             }
         });
+
+        connectBtn.setOnClickListener(new View.OnClickListener() {
+
+            public void onClick(View v) {
+                    int[][] info = Section.sectionsToInfo(sections);
+                    System.out.println(info.toString());
+                    connector = new ConnectionThread(getRealPathFromURI(selectedImage));
+                    connector.start();
+            }
+        });
     }
 
     @Override
@@ -60,7 +86,7 @@ public class MainActivity extends AppCompatActivity {
         switch(requestCode) {
             case GALLERY_REQUEST:
                 if(resultCode == RESULT_OK){
-                    Uri selectedImage = imageReturnedIntent.getData();
+                    selectedImage = imageReturnedIntent.getData();
                     new LoadImageTask().execute(selectedImage);
                     TextView textView = (TextView)findViewById(R.id.textView);
                 }
@@ -212,7 +238,7 @@ public class MainActivity extends AppCompatActivity {
                     current.setG(G/sizeOfSection);
                     current.setB(B/sizeOfSection);
                     sections[s] = current;
-                    publishProgress(s++);
+                    publishProgress(s);
                 }
                 Section.WIDTH=widthOfSection;
                 Section.HEIGHT=height;
@@ -232,6 +258,20 @@ public class MainActivity extends AppCompatActivity {
             mProgressBar.setProgress(0);
 
         }
+    }
+
+    private String getRealPathFromURI(Uri contentURI) {
+        String result;
+        Cursor cursor = getContentResolver().query(contentURI, null, null, null, null);
+        if (cursor == null) { // Source is Dropbox or other similar local file path
+            result = contentURI.getPath();
+        } else {
+            cursor.moveToFirst();
+            int idx = cursor.getColumnIndex(MediaStore.Images.ImageColumns.DATA);
+            result = cursor.getString(idx);
+            cursor.close();
+        }
+        return result;
     }
 }
 
