@@ -1,5 +1,11 @@
 package com.example.soundbeam;
 
+import android.graphics.Bitmap;
+import android.net.Uri;
+import android.os.AsyncTask;
+import android.provider.MediaStore;
+import android.view.View;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
@@ -81,4 +87,6 @@ public class ConnectionThread extends Thread {
         }
     }
 }
+
+
 

@@ -1,5 +1,7 @@
 package com.example.soundbeam;
 
+import android.app.Dialog;
+import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
@@ -19,19 +21,20 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.UnknownHostException;
 
 public class MainActivity extends AppCompatActivity {
-
-    private Socket client;
-    private PrintWriter printwriter;
-    String ip="192.168.1.4";
-    int port=45000;
     static final int GALLERY_REQUEST = 1;
     private Section[] sections;
     private ImageView imageView;
@@ -42,6 +45,8 @@ public class MainActivity extends AppCompatActivity {
     private String message;
     private ConnectionThread connector;
     private Uri selectedImage;
+    private static final int DOWNLOAD_ONPROGRESS = 1;
+    private ProgressDialog progressDialog;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,10 +73,9 @@ public class MainActivity extends AppCompatActivity {
         connectBtn.setOnClickListener(new View.OnClickListener() {
 
             public void onClick(View v) {
-                    int[][] info = Section.sectionsToInfo(sections);
-                    System.out.println(info.toString());
-                    connector = new ConnectionThread(getRealPathFromURI(selectedImage));
-                    connector.start();
+                    new SendImageTask().execute(getRealPathFromURI(selectedImage));
+                   // connector = new ConnectionThread(getRealPathFromURI(selectedImage));
+                   // connector.start();
             }
         });
     }
@@ -91,33 +95,6 @@ public class MainActivity extends AppCompatActivity {
                     TextView textView = (TextView)findViewById(R.id.textView);
                 }
         }
-    }
-
-    protected static int[] averageARGB(Bitmap pic) {
-        int A, R, G, B;
-        A = R = G = B = 0;
-        int pixelColor;
-        int width = pic.getWidth();
-        int height = pic.getHeight();
-        int size = width * height;
-
-        for (int x = 0; x < width; ++x) {
-            for (int y = 0; y < height; ++y) {
-                pixelColor = pic.getPixel(x, y);
-                A += Color.alpha(pixelColor);
-                R += Color.red(pixelColor);
-                G += Color.green(pixelColor);
-                B += Color.blue(pixelColor);
-            }
-        }
-
-        A /= size;
-        R /= size;
-        G /= size;
-        B /= size;
-
-        int[] average = {A, R, G, B};
-        return average;
     }
 
     private static Section[] sectionMaker(Bitmap pic, int num)
@@ -144,7 +121,6 @@ public class MainActivity extends AppCompatActivity {
                     B += Color.blue(pixelColor);
                 }
             }
-           // current.setStart(widthOfSection*s);
             current.setA(A/sizeOfSection);
             current.setR(R/sizeOfSection);
             current.setG(G/sizeOfSection);
@@ -190,7 +166,7 @@ public class MainActivity extends AppCompatActivity {
             mProgressBar.setProgress(100);
             mProgressBar.setVisibility(View.INVISIBLE);
             imageView.setImageBitmap(bitmap);
-            new MakeSectionsTask().execute(bitmap);
+            //new MakeSectionsTask().execute(bitmap);
             mProgressBar.setProgress(0);
 
         }
@@ -272,6 +248,101 @@ public class MainActivity extends AppCompatActivity {
             cursor.close();
         }
         return result;
+    }
+
+   private class SendImageTask extends AsyncTask<String, Integer, Integer> {
+        private String ip="192.168.1.4";
+        private int port=45000;
+        Socket client;
+        private String path;
+        private BufferedInputStream bis;
+        private BufferedOutputStream bos;
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+            client =null;
+            showDialog(DOWNLOAD_ONPROGRESS);
+        }
+
+        protected Integer doInBackground(String... paths) {
+            int count = paths.length;
+            for (int i = 0; i < count; i++) {
+                try {
+                    client = new Socket(ip, port);
+                    FileInputStream fis = new FileInputStream(paths[0]);
+                    File file = new File(paths[0]);
+                    int contentLength = (int) file.getTotalSpace()/10000;
+                    bis = new BufferedInputStream(fis);
+                    bos = new BufferedOutputStream(client.getOutputStream());
+                    progressDialog.setMax(contentLength);
+                    InputStream inputStream = client.getInputStream();
+                    OutputStream outputStream = client.getOutputStream();
+
+                    int pointer;
+                    byte[] byteArray = new byte[8192];
+                    int len1 = 0;
+                    while ((pointer = bis.read(byteArray)) != -1){
+                        len1 += pointer;
+                        publishProgress(len1/1000);
+                        bos.write(byteArray,0,pointer);
+                    }
+                    bis.close();
+                    bos.close();
+/* передача строки рабочая!
+            while ((bytesRead = inputStream.read(buffer)) != -1){
+                byteArrayOutputStream.write(buffer, 0, bytesRead);
+                response += byteArrayOutputStream.toString("UTF-8");
+            }
+*/
+                } catch (UnknownHostException e) {
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    System.out.println("Got an IOException: " + e.getMessage());
+                }
+                finally{
+                    if(client != null){
+                        try {
+                            client.close();
+                        } catch (IOException e) {
+                            // TODO Auto-generated catch block
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            }
+            return 1;
+        }
+
+        protected void onProgressUpdate(Integer... progress) {
+            progressDialog.setProgress(progress[0]);
+
+        }
+
+        protected void onPostExecute(Integer answer) {
+            progressDialog.dismiss();
+            removeDialog(DOWNLOAD_ONPROGRESS);
+        }
+    }
+
+    @Override
+    protected Dialog onCreateDialog(int id) {
+        switch (id) {
+            case DOWNLOAD_ONPROGRESS:
+                progressDialog = new ProgressDialog(this);
+                progressDialog.setMessage("Downloading latest ...");
+                progressDialog.setCancelable(true);
+                progressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+                try {
+                    progressDialog.show();
+                } catch (Exception e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+                return progressDialog;
+            default:
+                return null;
+        }
     }
 }
 
