@@ -3,7 +3,9 @@ package com.example.soundbeam;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Environment;
 import android.provider.MediaStore;
+import android.provider.Settings;
 import android.view.View;
 
 import java.io.BufferedInputStream;
@@ -11,19 +13,22 @@ import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
 
 /**
  * Created by FD on 10.07.2016.
  */
 public class ConnectionThread extends Thread {
     private String ip="192.168.1.4";
-    private int port=45000;
+    private int port=45020;
     Socket client;
     private String path;
     private BufferedInputStream bis;
@@ -35,45 +40,66 @@ public class ConnectionThread extends Thread {
     @Override
     public void run() {
         super.run();
-        String message = "testing";
-        String response = "";
         client =null;
-        DataOutputStream dataOutputStream= null;
-        DataInputStream dataInputStream = null;
         try {
             client = new Socket(ip, port);
-
-            ByteArrayOutputStream byteArrayOutputStream =
-                    new ByteArrayOutputStream(1024);
-            byte[] buffer = new byte[1024];
-
-            int bytesRead;
-            bis = new BufferedInputStream(new FileInputStream(path));
-            bos = new BufferedOutputStream(client.getOutputStream());
             InputStream inputStream = client.getInputStream();
             OutputStream outputStream = client.getOutputStream();
-            DataInputStream in = new DataInputStream(inputStream);
-            DataOutputStream out = new DataOutputStream(outputStream);
+            File file = new File(path);
+            long length = file.length();
+            BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
+            BufferedOutputStream bos = new BufferedOutputStream(outputStream);
+            DataOutputStream leos = new DataOutputStream(outputStream);
+            DataInputStream lein = new DataInputStream(inputStream);
 
-            int count;
+
+            int count = 0;
+            long res = 0;
             byte[] byteArray = new byte[8192];
-            while ((count = bis.read(byteArray)) != -1){
-                bos.write(byteArray,0,count);
+            leos.writeLong(length);
+            while (res<length){
+                    count = bis.read(byteArray);
+                    bos.write(byteArray, 0, count);
+                    res += count;
+                System.out.println("Count = " + count + " Res = " + res);
+                bos.flush();
             }
-            bis.close();
+            System.out.println("Sent: " + res);
+           // bos.close();
+          //  bos.flush();
+
+
+            length = lein.readLong();
+            outputStream.flush();
+            System.out.println(length);
+            BufferedInputStream bis2 = new BufferedInputStream(client.getInputStream());
+            BufferedOutputStream bos2 = new BufferedOutputStream(new FileOutputStream(new File(Environment.getExternalStorageDirectory().getAbsolutePath()+"/sound.mid")));
+
+          // progressDialog.setMax(1000);
+
+           res = 0;
+            byteArray = new byte[8192];
+            while(res < length){
+                    count = bis2.read(byteArray);
+                    res += count;
+                    //publishProgress(len1 / 1000);
+                    System.out.println("Count: " + count + ", res: " + res);
+                    bos2.write(byteArray, 0, count);
+            }
+
+
+            bos2.flush();
             bos.close();
+            bis.close();
+            bos2.close();
+            bis2.close();
+            System.err.println("GOT MIDI!");
 
-
-/* передача строки рабочая!
-            while ((bytesRead = inputStream.read(buffer)) != -1){
-                byteArrayOutputStream.write(buffer, 0, bytesRead);
-                response += byteArrayOutputStream.toString("UTF-8");
-            }
-*/
+            
         } catch (UnknownHostException e) {
             e.printStackTrace();
         } catch (IOException e) {
-            System.out.println("Got an IOException: " + e.getMessage());
+            System.out.println("Got an IOException: " + e.toString());
         }
         finally{
             if(client != null){

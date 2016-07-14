@@ -10,6 +10,7 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Environment;
 import android.provider.MediaStore;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
@@ -27,6 +28,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -40,6 +42,7 @@ public class MainActivity extends AppCompatActivity {
     private ImageView imageView;
     private ProgressBar mProgressBar;
     private Button connectBtn;
+    private Button getMidiBtn;
     private Context mContext;
     private Bitmap mBitmap;
     private String message;
@@ -47,6 +50,7 @@ public class MainActivity extends AppCompatActivity {
     private Uri selectedImage;
     private static final int DOWNLOAD_ONPROGRESS = 1;
     private ProgressDialog progressDialog;
+    private static boolean FILE_DOWNLOADED = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,7 +58,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         imageView = (ImageView) findViewById(R.id.imageView);
         connectBtn = (Button) findViewById(R.id.connectButton);
-        mContext = this;
+        getMidiBtn = (Button) findViewById(R.id.getSoundBtn);
         mProgressBar = (ProgressBar) findViewById(R.id.progressBar);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -73,9 +77,16 @@ public class MainActivity extends AppCompatActivity {
         connectBtn.setOnClickListener(new View.OnClickListener() {
 
             public void onClick(View v) {
-                    new SendImageTask().execute(getRealPathFromURI(selectedImage));
-                   // connector = new ConnectionThread(getRealPathFromURI(selectedImage));
-                   // connector.start();
+                   // new SendImageTask().execute(getRealPathFromURI(selectedImage));
+                    connector = new ConnectionThread(getRealPathFromURI(selectedImage));
+                    connector.start();
+            }
+        });
+
+        getMidiBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                new GetImageTask().execute("sound.mid");
             }
         });
     }
@@ -172,69 +183,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private class MakeSectionsTask extends AsyncTask<Bitmap, Integer, Integer> {
-        @Override
-        protected void onPreExecute() {
-            mProgressBar.setProgress(0);
-            mProgressBar.setVisibility(View.VISIBLE);
-            super.onPreExecute();
-        }
-
-        protected Integer doInBackground(Bitmap... map) {
-            int count = map.length;
-            int num = 8;
-            long totalSize = 0;
-            for (int i = 0; i < count; i++) {
-                //sections= sectionMaker(map[i], 8);
-                sections = new Section[num];
-                int A, R, G, B;
-
-                int pixelColor;
-                int width = map[i].getWidth();
-                int height = map[i].getHeight();
-                int size = width * height;
-                int widthOfSection = width/num;
-                int sizeOfSection = widthOfSection * height;
-
-                for (int s = 0; s < num; s++) {
-                    Section current = new Section();
-                    A = R = G = B = 0;
-                    for (int x = widthOfSection*s; x < widthOfSection*s + widthOfSection; ++x) {
-                        for (int y = 0; y < height; ++y) {
-                            pixelColor = map[i].getPixel(x, y);
-                            A += Color.alpha(pixelColor);
-                            R += Color.red(pixelColor);
-                            G += Color.green(pixelColor);
-                            B += Color.blue(pixelColor);
-                        }
-                    }
-                    // current.setStart(widthOfSection*s);
-                    current.setA(A/sizeOfSection);
-                    current.setR(R/sizeOfSection);
-                    current.setG(G/sizeOfSection);
-                    current.setB(B/sizeOfSection);
-                    sections[s] = current;
-                    publishProgress(s);
-                }
-                Section.WIDTH=widthOfSection;
-                Section.HEIGHT=height;
-            }
-            return 1;
-        }
-
-        protected void onProgressUpdate(Integer... progress) {
-            //setProgressPercent(progress[0]);
-            mProgressBar.setProgress(progress[0]);
-
-        }
-
-        protected void onPostExecute(Integer num) {
-            mProgressBar.setProgress(100);
-            mProgressBar.setVisibility(View.INVISIBLE);
-            mProgressBar.setProgress(0);
-
-        }
-    }
 
     private String getRealPathFromURI(Uri contentURI) {
         String result;
@@ -276,6 +224,102 @@ public class MainActivity extends AppCompatActivity {
                     bis = new BufferedInputStream(fis);
                     bos = new BufferedOutputStream(client.getOutputStream());
                     progressDialog.setMax(contentLength);
+
+                    int pointer;
+                    byte[] byteArray = new byte[8192];
+                    int len1 = 0;
+                    while ((pointer = bis.read(byteArray)) != -1){
+                        len1 += pointer;
+                        publishProgress(len1/1000);
+                        bos.write(byteArray,0,pointer);
+                    }
+
+                    progressDialog.setProgress(0);
+                    //bis.close();
+                    //bos.close();
+
+
+           bis = new BufferedInputStream(client.getInputStream());
+           bos = new BufferedOutputStream(new FileOutputStream(Environment.getExternalStorageDirectory().getAbsolutePath()+"/sound.mid"));
+
+
+                        progressDialog.setMax(1000);
+
+                        len1 = 0;
+                        pointer = 0;
+                        while ((pointer = bis.read(byteArray)) != -1) {
+                            len1 += pointer;
+                            publishProgress(len1 / 1000);
+                            bos.write(byteArray, 0, pointer);
+                        }
+                        bis.close();
+                        bos.close();
+                    System.err.println("GOT MIDI!");
+
+
+
+/* передача строки рабочая!
+            while ((bytesRead = inputStream.read(buffer)) != -1){
+                byteArrayOutputStream.write(buffer, 0, bytesRead);
+                response += byteArrayOutputStream.toString("UTF-8");
+            }
+*/
+                } catch (UnknownHostException e) {
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    System.out.println("Got an IOException: " + e.getMessage());
+                }
+                finally{
+                    if(client != null){
+                        try {
+                            client.close();
+                        } catch (IOException e) {
+                            // TODO Auto-generated catch block
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            }
+            return 1;
+        }
+
+        protected void onProgressUpdate(Integer... progress) {
+            progressDialog.setProgress(progress[0]);
+
+        }
+
+        protected void onPostExecute(Integer answer) {
+            progressDialog.dismiss();
+            removeDialog(DOWNLOAD_ONPROGRESS);
+            getMidiBtn.setVisibility(View.VISIBLE);
+           // while(!FILE_DOWNLOADED) {
+             //   new GetImageTask().execute("sound.mid");
+           // }
+        }
+    }
+
+    private class GetImageTask extends AsyncTask<String, Integer, Integer> {
+        private String ip="192.168.1.4";
+        private int port=45000;
+        Socket client;
+        private BufferedInputStream bis;
+        private BufferedOutputStream bos;
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+            client =null;
+            showDialog(DOWNLOAD_ONPROGRESS);
+        }
+
+        protected Integer doInBackground(String... dests) {
+            int count = dests.length;
+            for (int i = 0; i < count; i++) {
+                try {
+                    client = new Socket(ip, port);
+                    bis = new BufferedInputStream(client.getInputStream());
+                    bos = new BufferedOutputStream(new FileOutputStream(dests[0]));
+                    progressDialog.setMax(1000);
                     InputStream inputStream = client.getInputStream();
                     OutputStream outputStream = client.getOutputStream();
 
@@ -322,6 +366,7 @@ public class MainActivity extends AppCompatActivity {
         protected void onPostExecute(Integer answer) {
             progressDialog.dismiss();
             removeDialog(DOWNLOAD_ONPROGRESS);
+            FILE_DOWNLOADED = true;
         }
     }
 
