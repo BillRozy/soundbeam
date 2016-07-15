@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -55,6 +56,7 @@ public class MainActivity extends AppCompatActivity {
     private Handler h;
     private long cnt;
     private long length;
+    private MediaPlayer mPlayer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -263,14 +265,14 @@ public class MainActivity extends AppCompatActivity {
 
     Runnable updateProgress = new Runnable() {
         public void run() {
-            progressDialog.setProgress((int) (cnt/(length/100)));
+            progressDialog.setProgress((int) cnt);
         }
     };
 
     Runnable makeProgressSettings = new Runnable() {
         public void run() {
             progressDialog.setProgress(0);
-            progressDialog.setMax(100);
+            progressDialog.setMax((int) length);
         }
     };
 
@@ -327,20 +329,16 @@ public class MainActivity extends AppCompatActivity {
                 BufferedInputStream bis2 = new BufferedInputStream(client.getInputStream());
                 BufferedOutputStream bos2 = new BufferedOutputStream(new FileOutputStream(new File(Environment.getExternalStorageDirectory().getAbsolutePath()+"/sound.mid")));
 
-                // progressDialog.setMax(1000);
-
                 res = 0;
                 byteArray = new byte[8192];
                 h.post(makeProgressSettings);
                 while(res < length){
                     count = bis2.read(byteArray);
                     res += count;
-                    //publishProgress(len1 / 1000);
                     h.post(updateProgress);
                     System.out.println("Count: " + count + ", res: " + res);
                     bos2.write(byteArray, 0, count);
                 }
-
                 bos2.flush();
                 bos.close();
                 bis.close();
