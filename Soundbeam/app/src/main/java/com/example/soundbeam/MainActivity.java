@@ -11,6 +11,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
 import android.provider.MediaStore;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
@@ -51,6 +52,9 @@ public class MainActivity extends AppCompatActivity {
     private static final int DOWNLOAD_ONPROGRESS = 1;
     private ProgressDialog progressDialog;
     private static boolean FILE_DOWNLOADED = false;
+    private Handler h;
+    private long cnt;
+    private long length;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -62,6 +66,7 @@ public class MainActivity extends AppCompatActivity {
         mProgressBar = (ProgressBar) findViewById(R.id.progressBar);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+        h = new Handler();
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
@@ -78,6 +83,9 @@ public class MainActivity extends AppCompatActivity {
 
             public void onClick(View v) {
                    // new SendImageTask().execute(getRealPathFromURI(selectedImage));
+                progressDialog = new ProgressDialog(MainActivity.this);
+                progressDialog.setProgress(0);
+                showDialog(DOWNLOAD_ONPROGRESS);
                     connector = new ConnectionThread(getRealPathFromURI(selectedImage));
                     connector.start();
             }
@@ -108,40 +116,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private static Section[] sectionMaker(Bitmap pic, int num)
-    {
-        Section[] sections = new Section[num];
-        int A, R, G, B;
 
-        int pixelColor;
-        int width = pic.getWidth();
-        int height = pic.getHeight();
-        int size = width * height;
-        int widthOfSection = width/num;
-        int sizeOfSection = widthOfSection * height;
-
-        for (int s = 0; s < num; s++) {
-            Section current = new Section();
-            A = R = G = B = 0;
-            for (int x = widthOfSection*s; x < widthOfSection*s + widthOfSection; ++x) {
-                for (int y = 0; y < height; ++y) {
-                    pixelColor = pic.getPixel(x, y);
-                    A += Color.alpha(pixelColor);
-                    R += Color.red(pixelColor);
-                    G += Color.green(pixelColor);
-                    B += Color.blue(pixelColor);
-                }
-            }
-            current.setA(A/sizeOfSection);
-            current.setR(R/sizeOfSection);
-            current.setG(G/sizeOfSection);
-            current.setB(B/sizeOfSection);
-            sections[s] = current;
-        }
-        Section.WIDTH=widthOfSection;
-        Section.HEIGHT=height;
-        return sections;
-    }
 
     private class LoadImageTask extends AsyncTask<Uri, Integer, Bitmap> {
         @Override
@@ -198,105 +173,6 @@ public class MainActivity extends AppCompatActivity {
         return result;
     }
 
-   private class SendImageTask extends AsyncTask<String, Integer, Integer> {
-        private String ip="192.168.1.4";
-        private int port=45000;
-        Socket client;
-        private String path;
-        private BufferedInputStream bis;
-        private BufferedOutputStream bos;
-
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-            client =null;
-            showDialog(DOWNLOAD_ONPROGRESS);
-        }
-
-        protected Integer doInBackground(String... paths) {
-            int count = paths.length;
-            for (int i = 0; i < count; i++) {
-                try {
-                    client = new Socket(ip, port);
-                    FileInputStream fis = new FileInputStream(paths[0]);
-                    File file = new File(paths[0]);
-                    int contentLength = (int) file.getTotalSpace()/10000;
-                    bis = new BufferedInputStream(fis);
-                    bos = new BufferedOutputStream(client.getOutputStream());
-                    progressDialog.setMax(contentLength);
-
-                    int pointer;
-                    byte[] byteArray = new byte[8192];
-                    int len1 = 0;
-                    while ((pointer = bis.read(byteArray)) != -1){
-                        len1 += pointer;
-                        publishProgress(len1/1000);
-                        bos.write(byteArray,0,pointer);
-                    }
-
-                    progressDialog.setProgress(0);
-                    //bis.close();
-                    //bos.close();
-
-
-           bis = new BufferedInputStream(client.getInputStream());
-           bos = new BufferedOutputStream(new FileOutputStream(Environment.getExternalStorageDirectory().getAbsolutePath()+"/sound.mid"));
-
-
-                        progressDialog.setMax(1000);
-
-                        len1 = 0;
-                        pointer = 0;
-                        while ((pointer = bis.read(byteArray)) != -1) {
-                            len1 += pointer;
-                            publishProgress(len1 / 1000);
-                            bos.write(byteArray, 0, pointer);
-                        }
-                        bis.close();
-                        bos.close();
-                    System.err.println("GOT MIDI!");
-
-
-
-/* передача строки рабочая!
-            while ((bytesRead = inputStream.read(buffer)) != -1){
-                byteArrayOutputStream.write(buffer, 0, bytesRead);
-                response += byteArrayOutputStream.toString("UTF-8");
-            }
-*/
-                } catch (UnknownHostException e) {
-                    e.printStackTrace();
-                } catch (IOException e) {
-                    System.out.println("Got an IOException: " + e.getMessage());
-                }
-                finally{
-                    if(client != null){
-                        try {
-                            client.close();
-                        } catch (IOException e) {
-                            // TODO Auto-generated catch block
-                            e.printStackTrace();
-                        }
-                    }
-                }
-            }
-            return 1;
-        }
-
-        protected void onProgressUpdate(Integer... progress) {
-            progressDialog.setProgress(progress[0]);
-
-        }
-
-        protected void onPostExecute(Integer answer) {
-            progressDialog.dismiss();
-            removeDialog(DOWNLOAD_ONPROGRESS);
-            getMidiBtn.setVisibility(View.VISIBLE);
-           // while(!FILE_DOWNLOADED) {
-             //   new GetImageTask().execute("sound.mid");
-           // }
-        }
-    }
 
     private class GetImageTask extends AsyncTask<String, Integer, Integer> {
         private String ip="192.168.1.4";
@@ -333,12 +209,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                     bis.close();
                     bos.close();
-/* передача строки рабочая!
-            while ((bytesRead = inputStream.read(buffer)) != -1){
-                byteArrayOutputStream.write(buffer, 0, bytesRead);
-                response += byteArrayOutputStream.toString("UTF-8");
-            }
-*/
+
                 } catch (UnknownHostException e) {
                     e.printStackTrace();
                 } catch (IOException e) {
@@ -387,6 +258,111 @@ public class MainActivity extends AppCompatActivity {
                 return progressDialog;
             default:
                 return null;
+        }
+    }
+
+    Runnable updateProgress = new Runnable() {
+        public void run() {
+            progressDialog.setProgress((int) (cnt/(length/100)));
+        }
+    };
+
+    Runnable makeProgressSettings = new Runnable() {
+        public void run() {
+            progressDialog.setProgress(0);
+            progressDialog.setMax(100);
+        }
+    };
+
+    Runnable hideProgressDialog = new Runnable() {
+        public void run() {
+            progressDialog.hide();
+        }
+    };
+
+    private class ConnectionThread extends Thread {
+        private String ip="192.168.1.4";
+        private int port=45020;
+        Socket client;
+        private String path;
+
+        public ConnectionThread(String imagePath){
+            this.path = imagePath;
+        }
+        @Override
+        public void run() {
+            super.run();
+            client =null;
+            try {
+                client = new Socket(ip, port);
+                InputStream inputStream = client.getInputStream();
+                OutputStream outputStream = client.getOutputStream();
+                File file = new File(path);
+                length = file.length();
+                BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
+                BufferedOutputStream bos = new BufferedOutputStream(outputStream);
+                DataOutputStream leos = new DataOutputStream(outputStream);
+                DataInputStream lein = new DataInputStream(inputStream);
+
+
+                int count = 0;
+                long res = 0;
+                h.post(makeProgressSettings);
+                byte[] byteArray = new byte[8192];
+                leos.writeLong(length);
+                while (res<length){
+                    count = bis.read(byteArray);
+                    bos.write(byteArray, 0, count);
+                    res += count;
+                    cnt = res;
+                    h.post(updateProgress);
+                    System.out.println("Count = " + count + " Res = " + res);
+                    bos.flush();
+                }
+                System.out.println("Sent: " + res);
+
+                length = lein.readLong();
+                outputStream.flush();
+                System.out.println(length);
+                BufferedInputStream bis2 = new BufferedInputStream(client.getInputStream());
+                BufferedOutputStream bos2 = new BufferedOutputStream(new FileOutputStream(new File(Environment.getExternalStorageDirectory().getAbsolutePath()+"/sound.mid")));
+
+                // progressDialog.setMax(1000);
+
+                res = 0;
+                byteArray = new byte[8192];
+                h.post(makeProgressSettings);
+                while(res < length){
+                    count = bis2.read(byteArray);
+                    res += count;
+                    //publishProgress(len1 / 1000);
+                    h.post(updateProgress);
+                    System.out.println("Count: " + count + ", res: " + res);
+                    bos2.write(byteArray, 0, count);
+                }
+
+                bos2.flush();
+                bos.close();
+                bis.close();
+                bos2.close();
+                bis2.close();
+                System.err.println("GOT MIDI!");
+                h.post(hideProgressDialog);
+
+            } catch (UnknownHostException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                System.out.println("Got an IOException: " + e.toString());
+            }
+            finally{
+                if(client != null){
+                    try {
+                        client.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
         }
     }
 }

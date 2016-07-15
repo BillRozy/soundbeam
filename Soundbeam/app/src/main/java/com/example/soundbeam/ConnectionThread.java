@@ -1,16 +1,8 @@
 package com.example.soundbeam;
 
-import android.graphics.Bitmap;
-import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Environment;
-import android.provider.MediaStore;
-import android.provider.Settings;
-import android.view.View;
-
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
@@ -21,7 +13,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.net.UnknownHostException;
-import java.nio.ByteBuffer;
 
 /**
  * Created by FD on 10.07.2016.
@@ -31,8 +22,6 @@ public class ConnectionThread extends Thread {
     private int port=45020;
     Socket client;
     private String path;
-    private BufferedInputStream bis;
-    private BufferedOutputStream bos;
 
     public ConnectionThread(String imagePath){
     this.path = imagePath;
@@ -65,9 +54,6 @@ public class ConnectionThread extends Thread {
                 bos.flush();
             }
             System.out.println("Sent: " + res);
-           // bos.close();
-          //  bos.flush();
-
 
             length = lein.readLong();
             outputStream.flush();
@@ -87,7 +73,6 @@ public class ConnectionThread extends Thread {
                     bos2.write(byteArray, 0, count);
             }
 
-
             bos2.flush();
             bos.close();
             bis.close();
@@ -95,7 +80,6 @@ public class ConnectionThread extends Thread {
             bis2.close();
             System.err.println("GOT MIDI!");
 
-            
         } catch (UnknownHostException e) {
             e.printStackTrace();
         } catch (IOException e) {
@@ -106,7 +90,6 @@ public class ConnectionThread extends Thread {
                 try {
                     client.close();
                 } catch (IOException e) {
-                    // TODO Auto-generated catch block
                     e.printStackTrace();
                 }
             }
