@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -17,9 +18,11 @@ import android.provider.MediaStore;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.MediaController;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -38,7 +41,7 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.UnknownHostException;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements MediaPlayer.OnPreparedListener {
     static final int GALLERY_REQUEST = 1;
     private Section[] sections;
     private ImageView imageView;
@@ -57,6 +60,8 @@ public class MainActivity extends AppCompatActivity {
     private long cnt;
     private long length;
     private MediaPlayer mPlayer;
+    private Button playBtn;
+    final String DATA_SD = Environment.getExternalStorageDirectory().getAbsolutePath()+"/sound.mid";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -66,6 +71,8 @@ public class MainActivity extends AppCompatActivity {
         connectBtn = (Button) findViewById(R.id.connectButton);
         getMidiBtn = (Button) findViewById(R.id.getSoundBtn);
         mProgressBar = (ProgressBar) findViewById(R.id.progressBar);
+        playBtn = (Button) findViewById(R.id.playBtn);
+        mPlayer = new MediaPlayer();
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         h = new Handler();
@@ -97,6 +104,13 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 new GetImageTask().execute("sound.mid");
+            }
+        });
+
+        playBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mPlayer.start();
             }
         });
     }
@@ -263,6 +277,13 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    Runnable setPlayVisible = new Runnable() {
+        public void run() {
+            playBtn.setEnabled(true);
+            playBtn.setVisibility(View.VISIBLE);
+        }
+    };
+
     Runnable updateProgress = new Runnable() {
         public void run() {
             progressDialog.setProgress((int) cnt);
@@ -345,6 +366,11 @@ public class MainActivity extends AppCompatActivity {
                 bos2.close();
                 bis2.close();
                 System.err.println("GOT MIDI!");
+                mPlayer.setDataSource(DATA_SD);
+                mPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
+                mPlayer.setOnPreparedListener(MainActivity.this);
+                mPlayer.prepareAsync();
+                h.post(setPlayVisible);
                 h.post(hideProgressDialog);
 
             } catch (UnknownHostException e) {
@@ -362,6 +388,10 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         }
+    }
+    @Override
+    public void onPrepared(MediaPlayer mp) {
+        mp.start();
     }
 }
 
