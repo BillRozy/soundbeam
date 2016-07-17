@@ -43,17 +43,15 @@ import java.net.UnknownHostException;
 
 public class MainActivity extends AppCompatActivity implements MediaPlayer.OnPreparedListener {
     static final int GALLERY_REQUEST = 1;
-    private Section[] sections;
     private ImageView imageView;
     private ProgressBar mProgressBar;
     private Button connectBtn;
     private Button getMidiBtn;
     private Context mContext;
-    private Bitmap mBitmap;
-    private String message;
     private ConnectionThread connector;
     private Uri selectedImage;
     private static final int DOWNLOAD_ONPROGRESS = 1;
+    private static int PICTURE_CHOSEN = 0;
     private ProgressDialog progressDialog;
     private static boolean FILE_DOWNLOADED = false;
     private Handler h;
@@ -76,6 +74,7 @@ public class MainActivity extends AppCompatActivity implements MediaPlayer.OnPre
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         h = new Handler();
+        progressDialog = new ProgressDialog(MainActivity.this);
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
@@ -91,21 +90,11 @@ public class MainActivity extends AppCompatActivity implements MediaPlayer.OnPre
         connectBtn.setOnClickListener(new View.OnClickListener() {
 
             public void onClick(View v) {
-                   // new SendImageTask().execute(getRealPathFromURI(selectedImage));
-                progressDialog = new ProgressDialog(MainActivity.this);
-                progressDialog.setProgress(0);
-                showDialog(DOWNLOAD_ONPROGRESS);
-                    connector = new ConnectionThread(getRealPathFromURI(selectedImage));
-                    connector.start();
+
+                isImageAction();
             }
         });
 
-        getMidiBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                new GetImageTask().execute("sound.mid");
-            }
-        });
 
         playBtn.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -113,6 +102,22 @@ public class MainActivity extends AppCompatActivity implements MediaPlayer.OnPre
                 mPlayer.start();
             }
         });
+    }
+
+    private void isImageAction()
+    {
+        if(PICTURE_CHOSEN == 1)
+        {
+            progressDialog.setProgress(0);
+            showDialog(DOWNLOAD_ONPROGRESS);
+            connector = new ConnectionThread(getRealPathFromURI(selectedImage));
+            connector.start();
+        }
+        else
+        {
+            Toast.makeText(MainActivity.this, "choose image first!", Toast.LENGTH_SHORT).show();
+        }
+
     }
 
     @Override
@@ -128,6 +133,7 @@ public class MainActivity extends AppCompatActivity implements MediaPlayer.OnPre
                     selectedImage = imageReturnedIntent.getData();
                     new LoadImageTask().execute(selectedImage);
                     TextView textView = (TextView)findViewById(R.id.textView);
+                    PICTURE_CHOSEN = 1;
                 }
         }
     }
@@ -189,74 +195,6 @@ public class MainActivity extends AppCompatActivity implements MediaPlayer.OnPre
         return result;
     }
 
-
-    private class GetImageTask extends AsyncTask<String, Integer, Integer> {
-        private String ip="192.168.1.4";
-        private int port=45000;
-        Socket client;
-        private BufferedInputStream bis;
-        private BufferedOutputStream bos;
-
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-            client =null;
-            showDialog(DOWNLOAD_ONPROGRESS);
-        }
-
-        protected Integer doInBackground(String... dests) {
-            int count = dests.length;
-            for (int i = 0; i < count; i++) {
-                try {
-                    client = new Socket(ip, port);
-                    bis = new BufferedInputStream(client.getInputStream());
-                    bos = new BufferedOutputStream(new FileOutputStream(dests[0]));
-                    progressDialog.setMax(1000);
-                    InputStream inputStream = client.getInputStream();
-                    OutputStream outputStream = client.getOutputStream();
-
-                    int pointer;
-                    byte[] byteArray = new byte[8192];
-                    int len1 = 0;
-                    while ((pointer = bis.read(byteArray)) != -1){
-                        len1 += pointer;
-                        publishProgress(len1/1000);
-                        bos.write(byteArray,0,pointer);
-                    }
-                    bis.close();
-                    bos.close();
-
-                } catch (UnknownHostException e) {
-                    e.printStackTrace();
-                } catch (IOException e) {
-                    System.out.println("Got an IOException: " + e.getMessage());
-                }
-                finally{
-                    if(client != null){
-                        try {
-                            client.close();
-                        } catch (IOException e) {
-                            // TODO Auto-generated catch block
-                            e.printStackTrace();
-                        }
-                    }
-                }
-            }
-            return 1;
-        }
-
-        protected void onProgressUpdate(Integer... progress) {
-            progressDialog.setProgress(progress[0]);
-
-        }
-
-        protected void onPostExecute(Integer answer) {
-            progressDialog.dismiss();
-            removeDialog(DOWNLOAD_ONPROGRESS);
-            FILE_DOWNLOADED = true;
-        }
-    }
-
     @Override
     protected Dialog onCreateDialog(int id) {
         switch (id) {
@@ -300,11 +238,13 @@ public class MainActivity extends AppCompatActivity implements MediaPlayer.OnPre
     Runnable hideProgressDialog = new Runnable() {
         public void run() {
             progressDialog.hide();
+            progressDialog.setProgress(0);
+           // progressDialog.dismiss();
         }
     };
 
     private class ConnectionThread extends Thread {
-        private String ip="192.168.1.4";
+        private String ip="192.168.1.3";
         private int port=45020;
         Socket client;
         private String path;
@@ -317,6 +257,12 @@ public class MainActivity extends AppCompatActivity implements MediaPlayer.OnPre
             super.run();
             client =null;
             try {
+                try {
+                    mPlayer.stop();
+                    mPlayer.reset();
+                    File oldMid = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/sound.mid");
+                    oldMid.delete();
+                }catch (Exception e){}
                 client = new Socket(ip, port);
                 InputStream inputStream = client.getInputStream();
                 OutputStream outputStream = client.getOutputStream();
